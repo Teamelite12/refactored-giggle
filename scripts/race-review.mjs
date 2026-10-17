@@ -1,9 +1,8 @@
 // Race accessibility review — GitHub Action entry point.
 //
-// Triggered by a `/race` comment on an issue or PR. It reuses the extension's review
-// engine (lib/reviewer.js heuristic + lib/ai-reviewer.js Copilot/OpenAI-compatible LLM),
-// reviews the issue text against the WCAG dataset, and posts the result back as a comment
-// via the GitHub REST API.
+// Triggered by a `/race` comment on an issue or PR. It uses the Copilot/OpenAI-compatible
+// LLM review engine (lib/ai-reviewer.js), reviews the issue text against the WCAG dataset,
+// and posts the result back as a comment via the GitHub REST API.
 //
 // Required environment (provided by the workflow):
 //   GITHUB_TOKEN       - token with issues:write / pull-requests:write (and models:read
@@ -17,7 +16,6 @@
 //   MODEL_TOKEN        - credential for the model endpoint (defaults to GITHUB_TOKEN so
 //                        GitHub Models works with no extra secret).
 //   SHARED_DATASET_URL - fetch the shared/central dataset instead of the bundled copy.
-//   DISABLE_AI         - set to "1"/"true" to force the offline heuristic only.
 
 import { readFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -79,7 +77,6 @@ async function loadDataset() {
 }
 
 function resolveAiConfig() {
-  if (/^(1|true|yes)$/i.test(process.env.DISABLE_AI || "")) return null;
   const token = process.env.MODEL_TOKEN || process.env.GITHUB_TOKEN;
   if (!token) return null;
   return {
@@ -94,14 +91,10 @@ function resolveAiConfig() {
 
 async function runReview(input, dataset) {
   const aiConfig = resolveAiConfig();
-  if (aiConfig) {
-    try {
-      return await reviewIssueWithAI(input, dataset, aiConfig);
-    } catch (error) {
-      console.error(`::warning::Copilot review failed (${error.message}); using the offline heuristic.`);
-    }
+  if (!aiConfig) {
+    fail("Copilot AI is not configured; this command requires a working AI setup (DISABLE_AI must not be set).");
   }
-  return reviewIssue(input, dataset);
+  return await reviewIssueWithAI(input, dataset, aiConfig);
 }
 
 function referenceWcagSeverity(bug) {
