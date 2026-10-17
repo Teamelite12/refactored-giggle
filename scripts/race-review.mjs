@@ -5,27 +5,23 @@
 // and posts the result back as a comment via the GitHub REST API.
 //
 // Required environment (provided by the workflow):
-//   GITHUB_TOKEN       - token with issues:write / pull-requests:write (and models:read
-//                        when using GitHub Models for the LLM). Used to post the comment.
+//   GITHUB_TOKEN       - token with issues:write / pull-requests:write to post the comment.
 //   GITHUB_EVENT_PATH  - path to the issue_comment event payload (set by Actions).
 //   GITHUB_REPOSITORY  - "owner/repo" (set by Actions).
-// Optional:
 //   MODEL_ENDPOINT     - OpenAI-compatible chat/completions URL.
-//                        Defaults to GitHub Models (https://models.github.ai/inference/chat/completions).
-//   MODEL_NAME         - model id (default "openai/gpt-4o").
-//   MODEL_TOKEN        - credential for the model endpoint (defaults to GITHUB_TOKEN so
-//                        GitHub Models works with no extra secret).
+//   MODEL_TOKEN        - credential for the model endpoint.
+// Optional:
+//   MODEL_NAME         - model id (default "gpt-4o").
 //   SHARED_DATASET_URL - fetch the shared/central dataset instead of the bundled copy.
 
 import { readFile } from "node:fs/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { dirname, join } from "node:path";
 
-import { reviewIssue, reviewerInternals } from "../lib/reviewer.js";
+import { reviewerInternals } from "../lib/reviewer.js";
 import { reviewIssueWithAI, DEFAULT_AI_CONFIG } from "../lib/ai-reviewer.js";
 
 const COMMAND = "/race";
-const GITHUB_MODELS_ENDPOINT = "https://models.github.ai/inference/chat/completions";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function fail(message) {
@@ -76,24 +72,27 @@ async function loadDataset() {
   return JSON.parse(raw);
 }
 
-function resolveAiConfig() {
-  const token = process.env.MODEL_TOKEN || process.env.GITHUB_TOKEN;
-  if (!token) return null;
+export function resolveAiConfig(env = process.env) {
+  const endpoint = env.MODEL_ENDPOINT?.trim();
+  const token = env.MODEL_TOKEN;
+  if (!endpoint || !token?.trim()) {
+    throw new Error(
+      "AI review requires RACE_MODEL_ENDPOINT (repository variable) and RACE_MODEL_TOKEN (repository secret). "
+      + "GitHub Models has been retired; configure a supported OpenAI-compatible chat/completions endpoint."
+    );
+  }
   return {
     ...DEFAULT_AI_CONFIG,
     enabled: true,
     provider: "custom",
-    endpoint: process.env.MODEL_ENDPOINT || GITHUB_MODELS_ENDPOINT,
-    model: process.env.MODEL_NAME || "openai/gpt-4o",
+    endpoint,
+    model: env.MODEL_NAME || "gpt-4o",
     token
   };
 }
 
 async function runReview(input, dataset) {
   const aiConfig = resolveAiConfig();
-  if (!aiConfig) {
-    fail("Copilot AI is not configured; this command requires a working AI setup (DISABLE_AI must not be set).");
-  }
   return await reviewIssueWithAI(input, dataset, aiConfig);
 }
 
