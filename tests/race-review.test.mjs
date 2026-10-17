@@ -93,13 +93,28 @@ test("getCopilotSessionToken requires a token and surfaces rejected access", asy
   );
 });
 
+test("getCopilotSessionToken explains a token-exchange 404 without exposing the credential", async () => {
+  await assert.rejects(
+    () => getCopilotSessionToken("test-credential", async () => ({ ok: false, status: 404 })),
+    (error) => {
+      assert.match(error.message, /404/);
+      assert.match(error.message, /fine-grained PAT.*Copilot Requests/);
+      assert.doesNotMatch(error.message, /test-credential/);
+      return true;
+    }
+  );
+});
+
 test("runReview uses Copilot only: exchanges the token and calls the Copilot endpoint", async () => {
   const calls = [];
   const fakeFetch = async (url, options = {}) => {
     calls.push(url);
     if (String(url).includes("copilot_internal")) {
+      assert.equal(options.headers.Authorization, "token oauth");
       return { ok: true, status: 200, json: async () => ({ token: "session-token" }) };
     }
+    assert.equal(options.headers.Authorization, ["Bearer", "session-token"].join(" "));
+    assert.equal(options.headers["Copilot-Integration-Id"], "vscode-chat");
     return {
       ok: true,
       json: async () => ({
@@ -119,6 +134,65 @@ test("runReview uses Copilot only: exchanges the token and calls the Copilot end
   assert.equal(result.source, "copilot");
   assert.ok(calls.some((u) => String(u).includes("api.githubcopilot.com")));
   assert.ok(!calls.some((u) => String(u).includes("models.github.ai")));
+});
+
+test("runReview sends fine-grained PATs directly to Copilot without an editor token exchange", async () => {
+  const calls = [];
+  const result = await runReview(
+    buildReviewInput(issue),
+    tinyDataset,
+    { COPILOT_GITHUB_TOKEN: "github_pat_test", COPILOT_MODEL: "test-model" },
+    async (url, options) => {
+      calls.push(url);
+      assert.equal(url, "https://api.githubcopilot.com/chat/completions");
+      assert.equal(options.method, "POST");
+      assert.equal(options.headers.Authorization, ["Bearer", "github_pat_test"].join(" "));
+      assert.equal(options.headers["Copilot-Integration-Id"], "copilot-developer-cli");
+      const body = JSON.parse(options.body);
+      assert.equal(body.model, "test-model");
+      assert.match(body.messages[1].content, /Keyboard focus/);
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: JSON.stringify({
+            validity: "Valid",
+            suggestedWcag: "2.4.7",
+            suggestedSeverity: "Severity-2",
+            justification: "Focus outline removed."
+          }) } }]
+        })
+      };
+    }
+  );
+  assert.equal(calls.length, 1);
+  assert.equal(result.source, "copilot");
+  assert.equal(result.validity, "Valid");
+});
+
+test("runReview propagates fine-grained PAT rejection without retrying or heuristic fallback", async () => {
+  let calls = 0;
+  await assert.rejects(
+    () => runReview(buildReviewInput(issue), tinyDataset, { COPILOT_GITHUB_TOKEN: "github_pat_test" }, async (url) => {
+      calls++;
+      assert.equal(url, "https://api.githubcopilot.com/chat/completions");
+      return { ok: false, status: 401, text: async () => "Unauthorized" };
+    }),
+    /401/
+  );
+  assert.equal(calls, 1);
+});
+
+test("runReview propagates token-exchange 404 without attempting a review", async () => {
+  let calls = 0;
+  await assert.rejects(
+    () => runReview(buildReviewInput(issue), tinyDataset, { COPILOT_GITHUB_TOKEN: "oauth" }, async (url) => {
+      calls++;
+      assert.equal(url, "https://api.github.com/copilot_internal/v2/token");
+      return { ok: false, status: 404 };
+    }),
+    /404/
+  );
+  assert.equal(calls, 1);
 });
 
 test("runReview has no heuristic fallback: Copilot failure propagates", async () => {

@@ -51,11 +51,21 @@ Commit and push. Then add the one required secret (see below) and the command is
 
 | Name | Type | Required | Purpose |
 | --- | --- | --- | --- |
-| `COPILOT_GITHUB_TOKEN` | secret | **yes** | GitHub token of an account with an active **Copilot** subscription. Exchanged at run time for a short-lived Copilot token. |
+| `COPILOT_GITHUB_TOKEN` | secret | **yes** | Personal-account fine-grained PAT with **Copilot Requests** permission and an active **Copilot** subscription, or a Copilot editor OAuth token. |
 | `RACE_COPILOT_MODEL` | var | no (`gpt-4o`) | Copilot chat model id. |
 | `RACE_SHARED_DATASET_URL` | var | no | Central dataset URL so every repo reviews against one shared, versioned dataset. |
 
-> The default `GITHUB_TOKEN` cannot call Copilot, so `COPILOT_GITHUB_TOKEN` is needed.
+Create a [fine-grained PAT](https://github.com/settings/personal-access-tokens/new)
+with your **personal account** as resource owner and **Account permissions → Copilot
+Requests**, then save it as the `COPILOT_GITHUB_TOKEN` repository secret. See
+[GitHub's token setup instructions](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/authenticate-copilot-cli#authenticating-with-environment-variables).
+Fine-grained PATs (`github_pat_`) authenticate directly to Copilot using the
+`copilot-developer-cli` integration; editor OAuth tokens retain the token-exchange flow.
+
+> This workflow needs `COPILOT_GITHUB_TOKEN` separately from the Actions `GITHUB_TOKEN`
+> used to post comments. Classic PATs (`ghp_`) are not supported. A token-exchange 404
+> can indicate an incompatible credential; replace the secret with the fine-grained
+> PAT described above rather than retrying the same exchange.
 > Copilot's token-exchange and chat endpoints are GitHub's internal editor APIs (not a
 > documented public API) and may change; use a dedicated, least-privilege account/token.
 ## Shared dataset (parallel use)
