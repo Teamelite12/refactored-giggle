@@ -7,11 +7,10 @@ on:
   issue_comment:
     types: [created]
 
-# Least-privilege token: write comments on issues/PRs, read GitHub Models for the LLM.
+# Least-privilege token: write comments on issues/PRs and read repository contents.
 permissions:
   issues: write
   pull-requests: write
-  models: read
   contents: read
 
 jobs:
@@ -43,10 +42,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          # LLM configuration. Defaults to GitHub Models (keyless, uses GITHUB_TOKEN).
-          # To use OpenAI/Azure instead, set MODEL_ENDPOINT + MODEL_NAME and add an
-          # OPENAI_API_KEY secret mapped to MODEL_TOKEN below.
-          MODEL_NAME: ${{ vars.RACE_MODEL_NAME || 'openai/gpt-4o' }}
+          # Required: configure a supported OpenAI-compatible endpoint and its credential.
+          # GitHub Models has been retired; GITHUB_TOKEN is only used to post comments.
+          MODEL_NAME: ${{ vars.RACE_MODEL_NAME || 'gpt-4o' }}
           MODEL_ENDPOINT: ${{ vars.RACE_MODEL_ENDPOINT }}
           MODEL_TOKEN: ${{ secrets.RACE_MODEL_TOKEN }}
           # Optional: point every repo at one central dataset for parallel, consistent reviews.

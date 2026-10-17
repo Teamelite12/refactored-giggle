@@ -44,26 +44,30 @@ data/dataset.json          # or use a shared dataset URL (see below)
 package.json
 ```
 
-Commit and push. The command is available immediately — no secrets required for the default
-setup (it uses the built-in `GITHUB_TOKEN` with **GitHub Models** for the LLM).
+Configure the model endpoint and credential below, then commit and push.
+The command requires a working AI provider and does not fall back to heuristic reviews.
 
 ## Configuration
 
-All optional, set as repository **Variables** (`vars.*`) or **Secrets** (`secrets.*`):
+Set these as repository **Variables** (`vars.*`) or **Secrets** (`secrets.*`):
 
 | Name | Type | Default | Purpose |
 | --- | --- | --- | --- |
-| `RACE_MODEL_NAME` | var | `openai/gpt-4o` | Model id for the LLM review. |
-| `RACE_MODEL_ENDPOINT` | var | GitHub Models | OpenAI-compatible chat/completions URL (set to use OpenAI/Azure). |
-| `RACE_MODEL_TOKEN` | secret | `GITHUB_TOKEN` | Credential for the model endpoint (e.g. an OpenAI key). |
+| `RACE_MODEL_NAME` | var | `gpt-4o` | Model id supported by your provider. |
+| `RACE_MODEL_ENDPOINT` | var | Required | Full OpenAI-compatible chat/completions URL. |
+| `RACE_MODEL_TOKEN` | secret | Required | Credential for the model endpoint (e.g. an OpenAI key). |
 | `RACE_SHARED_DATASET_URL` | var | — | Central dataset URL so every repo reviews against one shared, versioned dataset. |
 
 ### LLM options
 
-- **Default — GitHub Models (keyless):** nothing to configure. The workflow grants
-  `models: read` and passes `GITHUB_TOKEN` to the inference endpoint.
-- **OpenAI / Azure:** set `RACE_MODEL_ENDPOINT` + `RACE_MODEL_NAME`, and add a
-  `RACE_MODEL_TOKEN` secret with your API key.
+- **GitHub Models is no longer supported:** [GitHub retired its inference API on
+  July 30, 2026](https://docs.github.com/en/github-models). Its former endpoint can
+  return plain text instead of a model response.
+- **OpenAI / compatible providers:** set `RACE_MODEL_ENDPOINT` (for example,
+  `https://api.openai.com/v1/chat/completions`) and `RACE_MODEL_NAME`, and add a
+  `RACE_MODEL_TOKEN` secret with the provider's credential. The endpoint must accept
+  bearer-token authentication and return an OpenAI-compatible JSON response.
+- The built-in `GITHUB_TOKEN` is used only for GitHub comments, never as a model credential.
 
 ## Shared dataset (parallel use)
 
@@ -80,7 +84,6 @@ The workflow requests the minimum needed:
 permissions:
   issues: write
   pull-requests: write
-  models: read
   contents: read
 ```
 
@@ -90,8 +93,8 @@ permissions:
 npm test          # node --test tests/
 ```
 
-The tests cover body parsing (sections / WCAG / severity / code), and markdown rendering for
-valid and invalid results. Node 20+ is required (uses global `fetch`).
+The tests cover body parsing, markdown rendering, required model configuration, non-JSON
+responses, and posting AI reviews through mocked APIs. Node 20+ is required (uses global `fetch`).
 
 ## Notes
 
