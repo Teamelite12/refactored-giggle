@@ -8,8 +8,8 @@
 //
 // Required environment (provided by the workflow):
 //   GITHUB_TOKEN          - Actions token (issues/pull-requests: write). Posts the comment.
-//   COPILOT_GITHUB_TOKEN  - GitHub OAuth/user token of an account with a Copilot
-//                           subscription; exchanged for a short-lived Copilot token.
+//   COPILOT_GITHUB_TOKEN  - Fine-grained PAT with Copilot Requests permission, or an
+//                           editor OAuth token exchanged for a short-lived Copilot token.
 //   GITHUB_EVENT_PATH     - issue_comment event payload (set by Actions).
 //   GITHUB_REPOSITORY     - "owner/repo" (set by Actions).
 // Optional:
@@ -85,6 +85,9 @@ export async function getCopilotSessionToken(oauthToken, fetchImpl = fetch) {
   if (response.status === 401 || response.status === 403) {
     throw new Error("GitHub Copilot access was rejected. Confirm the account behind COPILOT_GITHUB_TOKEN has an active Copilot subscription.");
   }
+  if (response.status === 404) {
+    throw new Error("Copilot token exchange returned 404. Set COPILOT_GITHUB_TOKEN to a personal-account fine-grained PAT with the Copilot Requests permission, or a Copilot editor OAuth token. A classic PAT or the Actions GITHUB_TOKEN cannot use this exchange.");
+  }
   if (!response.ok) throw new Error(`Could not obtain a Copilot token (${response.status}).`);
   const data = await response.json();
   if (!data.token) throw new Error("GitHub did not return a Copilot token; a Copilot subscription may be required.");
@@ -93,14 +96,20 @@ export async function getCopilotSessionToken(oauthToken, fetchImpl = fetch) {
 
 // Copilot-only: always reviews with Copilot; any failure propagates to the caller.
 export async function runReview(input, dataset, env = process.env, fetchImpl = fetch) {
-  const token = await getCopilotSessionToken(env.COPILOT_GITHUB_TOKEN, fetchImpl);
+  const isFineGrainedPat = env.COPILOT_GITHUB_TOKEN?.startsWith("github_pat_");
+  const token = isFineGrainedPat
+    ? env.COPILOT_GITHUB_TOKEN
+    : await getCopilotSessionToken(env.COPILOT_GITHUB_TOKEN, fetchImpl);
   const config = {
     ...DEFAULT_AI_CONFIG,
     enabled: true,
     provider: "copilot",
     endpoint: COPILOT_CHAT_ENDPOINT,
     model: env.COPILOT_MODEL || "gpt-4o",
-    headers: copilotHeaders(),
+    headers: {
+      ...copilotHeaders(),
+      ...(isFineGrainedPat ? { "Copilot-Integration-Id": "copilot-developer-cli" } : {})
+    },
     token
   };
   return reviewIssueWithAI(input, dataset, config, fetchImpl);
