@@ -7,7 +7,7 @@ on:
   issue_comment:
     types: [created]
 
-# Least-privilege token: write comments on issues/PRs and read repository contents.
+# Least-privilege token: write comments on issues/PRs.
 permissions:
   issues: write
   pull-requests: write
@@ -38,15 +38,13 @@ jobs:
             "https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/reactions" \
             -d '{"content":"eyes"}' || true
 
-      - name: Run the Race accessibility review
+      - name: Run the Race accessibility review (GitHub Copilot)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          # Required: configure a supported OpenAI-compatible endpoint and its credential.
-          # GitHub Models has been retired; GITHUB_TOKEN is only used to post comments.
-          MODEL_NAME: ${{ vars.RACE_MODEL_NAME || 'gpt-4o' }}
-          MODEL_ENDPOINT: ${{ vars.RACE_MODEL_ENDPOINT }}
-          MODEL_TOKEN: ${{ secrets.RACE_MODEL_TOKEN }}
-          # Optional: point every repo at one central dataset for parallel, consistent reviews.
+          # GitHub token of an account with a Copilot subscription (required).
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+          COPILOT_MODEL: ${{ vars.RACE_COPILOT_MODEL || 'gpt-4o' }}
+          # Optional: central dataset URL so every repo reviews against one shared dataset.
           SHARED_DATASET_URL: ${{ vars.RACE_SHARED_DATASET_URL }}
         run: node scripts/race-review.mjs
