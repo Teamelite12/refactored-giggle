@@ -51,6 +51,4 @@ jobs:
           MODEL_TOKEN: ${{ secrets.RACE_MODEL_TOKEN }}
           # Optional: point every repo at one central dataset for parallel, consistent reviews.
           SHARED_DATASET_URL: ${{ vars.RACE_SHARED_DATASET_URL }}
-          # Set the repository variable RACE_DISABLE_AI to "1" to force the offline heuristic.
-          DISABLE_AI: ${{ vars.RACE_DISABLE_AI }}
         run: node scripts/race-review.mjs

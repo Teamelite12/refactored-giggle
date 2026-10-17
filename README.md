@@ -25,12 +25,9 @@ On `/race`, the workflow:
 1. Reacts 👀 to acknowledge the command.
 2. Reads the issue/PR title and body, extracting **Actual Result**, **Expected Result**, any
    fenced **code snippet**, and the cited **WCAG** / **severity** (same parsers as the extension).
-3. Reviews it with the shared engine:
-   - **LLM review** (`lib/ai-reviewer.js`) — understands the report, cross-validates whether it
-     is an *actual accessibility issue*, a *known browser/device/screen-reader issue*, or
-     *expected behaviour*, and suggests WCAG + severity + justification + reference + confidence.
-   - **Offline heuristic** (`lib/reviewer.js`) — automatic fallback if no model is configured or
-     the model call fails.
+3. Reviews it with the **LLM review** (`lib/ai-reviewer.js`) — understands the report, cross-validates whether it
+   is an *actual accessibility issue*, a *known browser/device/screen-reader issue*, or
+   *expected behaviour*, and suggests WCAG + severity + justification + reference + confidence.
 4. Posts a formatted markdown comment back via the GitHub REST API.
 
 ## Install into a repository
@@ -60,7 +57,6 @@ All optional, set as repository **Variables** (`vars.*`) or **Secrets** (`secret
 | `RACE_MODEL_ENDPOINT` | var | GitHub Models | OpenAI-compatible chat/completions URL (set to use OpenAI/Azure). |
 | `RACE_MODEL_TOKEN` | secret | `GITHUB_TOKEN` | Credential for the model endpoint (e.g. an OpenAI key). |
 | `RACE_SHARED_DATASET_URL` | var | — | Central dataset URL so every repo reviews against one shared, versioned dataset. |
-| `RACE_DISABLE_AI` | var | — | Set to `1` to force the offline heuristic only. |
 
 ### LLM options
 
@@ -68,7 +64,6 @@ All optional, set as repository **Variables** (`vars.*`) or **Secrets** (`secret
   `models: read` and passes `GITHUB_TOKEN` to the inference endpoint.
 - **OpenAI / Azure:** set `RACE_MODEL_ENDPOINT` + `RACE_MODEL_NAME`, and add a
   `RACE_MODEL_TOKEN` secret with your API key.
-- **Heuristic only:** set `RACE_DISABLE_AI = 1` (no model calls, fully offline).
 
 ## Shared dataset (parallel use)
 
